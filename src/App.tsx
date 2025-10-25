@@ -87,30 +87,39 @@ const SelectableList = ({
   source: string;
   items: { [id: string]: { name: string; source: string } };
   handleSelect: (id: string, source: string) => void;
-}) => (
-  <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-    <h2 style={{ textTransform: 'capitalize' }}>{source}</h2>
-    {Object.entries(items).map(([id, item]) => (
-      <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
-        <button
-          onClick={() => handleSelect(id, source)}
-          style={{
-            background: '#000',
-            border: '1px solid #ccc',
-            borderRadius: '6px',
-            padding: '6px 8px',
-            cursor: 'pointer',
-            width: '100%',
-            textAlign: 'left',
-            color: '#fff',
-          }}
-        >
-          {item.name || '(no name)'}
-        </button>
-      </li>
-    ))}
-  </ul>
-);
+}) => {
+  const validEntries = Object.entries(items).filter(([id, item]) => item?.name); // only items with names
+
+  return (
+    <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
+      <h2 style={{ textTransform: 'capitalize' }}>{source}</h2>
+
+      {validEntries.length === 0 ? (
+        <li style={{ color: '#999', fontStyle: 'italic' }}>No more options</li>
+      ) : (
+        validEntries.map(([id, item]) => (
+          <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
+            <button
+              onClick={() => handleSelect(id, source)}
+              style={{
+                background: '#000',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                padding: '6px 8px',
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                color: '#fff',
+              }}
+            >
+              {item.name}
+            </button>
+          </li>
+        ))
+      )}
+    </ul>
+  );
+};
 
 // --- App ---
 function App() {
