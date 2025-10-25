@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx';
 import './App.css'
 
-// Funtions
+// --- Functions ---
 function pick_user_options(data: any[], n: number) {
-  const grouped: { [key: string]: any[] } = {};
+  const grouped: { [source: string]: any[] } = {};
 
   // Group items by Source
   data.forEach(item => {
@@ -13,20 +13,33 @@ function pick_user_options(data: any[], n: number) {
     grouped[source].push(item);
   });
 
-  // Pick n random items per group
-  const result: { [key: string]: any[] } = {};
+  // Pick n random items per group and key by Element ID
+  const result: { [source: string]: { [id: string]: { name: string; source: string } } } = {};
   Object.entries(grouped).forEach(([source, items]) => {
     const shuffled = items.sort(() => 0.5 - Math.random());
-    result[source] = shuffled.slice(0, n);
+    const selected = shuffled.slice(0, n);
+
+    const keyed: { [id: string]: { name: string; source: string } } = {};
+    selected.forEach(item => {
+      const id = item['Element ID'];
+      if (id) {
+        keyed[id] = {
+          name: item['Element Name'],
+          source: source
+        };
+      }
+    });
+
+    result[source] = keyed;
   });
 
   return result;
 }
 
-
 function App() {
-  const [groupedItems, setGroupedItems] = useState<{ [key: string]: any[] }>({});
-  const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
+  const [groupedItems, setGroupedItems] = useState<{ [source: string]: { [id: string]: { name: string; source: string } } }>({});
+  const [checkedItems, setCheckedItems] = useState<{ [id: string]: boolean }>({});
+  const [user_input_vector, setUserInputVector] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/data/user_input_vars.csv')
@@ -37,63 +50,73 @@ function App() {
         const sheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(sheet);
 
-        // Pick 10 random items per Source
+        // Pick 10 random items per Source, now keyed by Element ID
         const user_option = pick_user_options(jsonData, 10);
         setGroupedItems(user_option);
 
         // Initialize checkbox states
         const initialChecked: { [key: string]: boolean } = {};
-        Object.values(user_option).forEach(items =>
-          items.forEach(item => (initialChecked[item['Element ID']] = false))
+        Object.values(user_option).forEach(sourceGroup =>
+          Object.keys(sourceGroup).forEach(id => {
+            initialChecked[id] = false;
+          })
         );
         setCheckedItems(initialChecked);
       });
   }, []);
 
   const handleCheckboxChange = (id: string) => {
-    setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    setCheckedItems(prev => {
+      const updated = { ...prev, [id]: !prev[id] };
+      const selected = Object.keys(updated).filter(key => updated[key]);
+      setUserInputVector(selected);
+      return updated;
+    });
   };
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-    <h1>Select Options</h1>
-    <div style={{ display: 'flex', gap: '40px' }}>
-      {/* Left column: Knowledge */}
-      <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-        <h2>Knowledge</h2>
-        {groupedItems['knowledge']?.slice(0, 10).map(item => (
-          <li key={item['Element ID']} style={{ textAlign: 'left', marginBottom: '8px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <input
-                type="checkbox"
-                checked={checkedItems[item['Element ID']] || false}
-                onChange={() => handleCheckboxChange(item['Element ID'])}
-              />
-              {item['Element Name']}
-            </label>
-          </li>
-        ))}
-      </ul>
+      <h1>Select Options</h1>
+      <div style={{ display: 'flex', gap: '40px' }}>
+        {/* Left column: Knowledge */}
+        <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
+          <h2>Knowledge</h2>
+          {Object.entries(groupedItems['knowledge'] || {}).map(([id, item]) => (
+            <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <input
+                  type="checkbox"
+                  checked={checkedItems[id] || false}
+                  onChange={() => handleCheckboxChange(id)}
+                />
+                {item.name}
+              </label>
+            </li>
+          ))}
+        </ul>
 
-      {/* Right column: Skills */}
-      <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-        <h2>Skills</h2>
-        {groupedItems['skills']?.slice(0, 10).map(item => (
-          <li key={item['Element ID']} style={{ textAlign: 'left', marginBottom: '8px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <input
-                type="checkbox"
-                checked={checkedItems[item['Element ID']] || false}
-                onChange={() => handleCheckboxChange(item['Element ID'])}
-              />
-              {item['Element Name']}
-            </label>
-          </li>
-        ))}
-      </ul>
+        {/* Right column: Skills */}
+        <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
+          <h2>Skills</h2>
+          {Object.entries(groupedItems['skills'] || {}).map(([id, item]) => (
+            <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <input
+                  type="checkbox"
+                  checked={checkedItems[id] || false}
+                  onChange={() => handleCheckboxChange(id)}
+                />
+                {item.name}
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <hr style={{ margin: '30px 0' }} />
+      <h2>User Input Vector</h2>
+      <pre>{JSON.stringify(user_input_vector, null, 2)}</pre>
     </div>
-  </div>
-
   );
 }
 
