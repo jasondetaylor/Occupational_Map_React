@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import './App.css'
+import './App.css';
 
 // --- Functions ---
 function pick_user_options(data: any[], n: number) {
   const grouped: { [source: string]: any[] } = {};
 
-  // Group items by Source
-  data.forEach(item => {
-    const source = item.Source;
-    if (!grouped[source]) grouped[source] = [];
-    grouped[source].push(item);
+  data.forEach(rawItem => {
+    const item = {
+      id: rawItem['Element ID'] ?? rawItem['element id'] ?? rawItem['id'],
+      name: rawItem['Element Name'] ?? rawItem['element name'] ?? rawItem['name'],
+      source: rawItem['Source']?.toLowerCase() ?? rawItem['source']?.toLowerCase() ?? 'unknown',
+    };
+    if (!item.id) return;
+
+    if (!grouped[item.source]) grouped[item.source] = [];
+    grouped[item.source].push(item);
   });
 
-  // Pick n random items per group and key by Element ID
   const result: { [source: string]: { [id: string]: { name: string; source: string } } } = {};
   Object.entries(grouped).forEach(([source, items]) => {
     const shuffled = items.sort(() => 0.5 - Math.random());
@@ -21,13 +25,7 @@ function pick_user_options(data: any[], n: number) {
 
     const keyed: { [id: string]: { name: string; source: string } } = {};
     selected.forEach(item => {
-      const id = item['Element ID'];
-      if (id) {
-        keyed[id] = {
-          name: item['Element Name'],
-          source: source
-        };
-      }
+      keyed[item.id] = { name: item.name, source };
     });
 
     result[source] = keyed;
@@ -36,9 +34,91 @@ function pick_user_options(data: any[], n: number) {
   return result;
 }
 
+// --- Components ---
+const SelectedStack = ({
+  selectedItems,
+  handleRemove,
+}: {
+  selectedItems: { id: string; name: string; source: string }[];
+  handleRemove: (id: string) => void;
+}) => (
+  <div style={{ marginBottom: '20px' }}>
+    <h2>Selected Items</h2>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+      {selectedItems.map(item => (
+        <div
+          key={item.id}
+          style={{
+            backgroundColor: '#e0f7fa',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid #00acc1',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#004d40',
+          }}
+        >
+          <span>{item.name}</span>
+          <button
+            onClick={() => handleRemove(item.id)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'black',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '16px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const SelectableList = ({
+  source,
+  items,
+  handleSelect,
+}: {
+  source: string;
+  items: { [id: string]: { name: string; source: string } };
+  handleSelect: (id: string, source: string) => void;
+}) => (
+  <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
+    <h2 style={{ textTransform: 'capitalize' }}>{source}</h2>
+    {Object.entries(items).map(([id, item]) => (
+      <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
+        <button
+          onClick={() => handleSelect(id, source)}
+          style={{
+            background: '#000',
+            border: '1px solid #ccc',
+            borderRadius: '6px',
+            padding: '6px 8px',
+            cursor: 'pointer',
+            width: '100%',
+            textAlign: 'left',
+            color: '#fff',
+          }}
+        >
+          {item.name || '(no name)'}
+        </button>
+      </li>
+    ))}
+  </ul>
+);
+
+// --- App ---
 function App() {
-  const [groupedItems, setGroupedItems] = useState<{ [source: string]: { [id: string]: { name: string; source: string } } }>({});
-  const [checkedItems, setCheckedItems] = useState<{ [id: string]: boolean }>({});
+  const [allItems, setAllItems] = useState<{ [source: string]: any[] }>({});
+  const [groupedItems, setGroupedItems] = useState<{
+    [source: string]: { [id: string]: { name: string; source: string } };
+  }>({});
+  const [selectedItems, setSelectedItems] = useState<{ id: string; name: string; source: string }[]>([]);
   const [user_input_vector, setUserInputVector] = useState<string[]>([]);
 
   useEffect(() => {
@@ -50,26 +130,67 @@ function App() {
         const sheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(sheet);
 
-        // Pick 10 random items per Source, now keyed by Element ID
+        // Store all items grouped by Source
+        const all: { [source: string]: any[] } = {};
+        jsonData.forEach(rawItem => {
+          const item = {
+            id: rawItem['Element ID'] ?? rawItem['element id'] ?? rawItem['id'],
+            name: rawItem['Element Name'] ?? rawItem['element name'] ?? rawItem['name'],
+            source: rawItem['Source']?.toLowerCase() ?? rawItem['source']?.toLowerCase() ?? 'unknown',
+          };
+          if (!item.id) return;
+          if (!all[item.source]) all[item.source] = [];
+          all[item.source].push(item);
+        });
+        setAllItems(all);
+
         const user_option = pick_user_options(jsonData, 10);
         setGroupedItems(user_option);
-
-        // Initialize checkbox states
-        const initialChecked: { [key: string]: boolean } = {};
-        Object.values(user_option).forEach(sourceGroup =>
-          Object.keys(sourceGroup).forEach(id => {
-            initialChecked[id] = false;
-          })
-        );
-        setCheckedItems(initialChecked);
       });
   }, []);
 
-  const handleCheckboxChange = (id: string) => {
-    setCheckedItems(prev => {
-      const updated = { ...prev, [id]: !prev[id] };
-      const selected = Object.keys(updated).filter(key => updated[key]);
-      setUserInputVector(selected);
+  const updateUserInputVector = (newSelectedItems: { id: string; name: string; source: string }[]) => {
+    setUserInputVector(newSelectedItems.map(item => item.id));
+  };
+
+  const handleSelect = (id: string, source: string) => {
+    const selectedItem = groupedItems[source][id];
+    const updatedSelected = [...selectedItems, { id, name: selectedItem.name, source }];
+    setSelectedItems(updatedSelected);
+    updateUserInputVector(updatedSelected);
+
+    const updatedGroup = { ...groupedItems[source] };
+    delete updatedGroup[id];
+
+    const usedIds = new Set([
+      ...Object.keys(groupedItems[source]),
+      ...selectedItems.map(i => i.id),
+      id,
+    ]);
+    const availablePool = allItems[source]?.filter(i => !usedIds.has(i.id)) || [];
+    if (availablePool.length > 0) {
+      const replacement = availablePool[Math.floor(Math.random() * availablePool.length)];
+      updatedGroup[replacement.id] = { name: replacement.name, source };
+    }
+
+    setGroupedItems(prev => ({ ...prev, [source]: updatedGroup }));
+  };
+
+  const handleRemove = (id: string) => {
+    const itemToRemove = selectedItems.find(i => i.id === id);
+    if (!itemToRemove) return;
+
+    const updatedSelected = selectedItems.filter(i => i.id !== id);
+    setSelectedItems(updatedSelected);
+    updateUserInputVector(updatedSelected);
+
+    setGroupedItems(prev => {
+      const updated = { ...prev };
+      const { source, name } = itemToRemove;
+      if (!updated[source]) updated[source] = {};
+      if (!updated[source][id]) {
+        updated[source][id] = { name, source };
+      }
       return updated;
     });
   };
@@ -77,40 +198,13 @@ function App() {
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial' }}>
       <h1>Select Options</h1>
-      <div style={{ display: 'flex', gap: '40px' }}>
-        {/* Left column: Knowledge */}
-        <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-          <h2>Knowledge</h2>
-          {Object.entries(groupedItems['knowledge'] || {}).map(([id, item]) => (
-            <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <input
-                  type="checkbox"
-                  checked={checkedItems[id] || false}
-                  onChange={() => handleCheckboxChange(id)}
-                />
-                {item.name}
-              </label>
-            </li>
-          ))}
-        </ul>
 
-        {/* Right column: Skills */}
-        <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-          <h2>Skills</h2>
-          {Object.entries(groupedItems['skills'] || {}).map(([id, item]) => (
-            <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <input
-                  type="checkbox"
-                  checked={checkedItems[id] || false}
-                  onChange={() => handleCheckboxChange(id)}
-                />
-                {item.name}
-              </label>
-            </li>
-          ))}
-        </ul>
+      <SelectedStack selectedItems={selectedItems} handleRemove={handleRemove} />
+
+      <div style={{ display: 'flex', gap: '40px' }}>
+        {Object.entries(groupedItems).map(([source, items]) => (
+          <SelectableList key={source} source={source} items={items} handleSelect={handleSelect} />
+        ))}
       </div>
 
       <hr style={{ margin: '30px 0' }} />
