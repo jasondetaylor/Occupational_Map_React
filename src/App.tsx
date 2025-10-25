@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
+import { Box, Flex, Heading, Button, Text } from "@chakra-ui/react";
 
 // --- Functions ---
 function pick_user_options(data: any[], n: number) {
@@ -8,9 +8,9 @@ function pick_user_options(data: any[], n: number) {
 
   data.forEach(rawItem => {
     const item = {
-      id: rawItem['Element ID'] ?? rawItem['element id'] ?? rawItem['id'],
-      name: rawItem['Element Name'] ?? rawItem['element name'] ?? rawItem['name'],
-      source: rawItem['Source']?.toLowerCase() ?? rawItem['source']?.toLowerCase() ?? 'unknown',
+      id: rawItem["Element ID"] ?? rawItem["element id"] ?? rawItem["id"],
+      name: rawItem["Element Name"] ?? rawItem["element name"] ?? rawItem["name"],
+      source: rawItem["Source"]?.toLowerCase() ?? rawItem["source"]?.toLowerCase() ?? "unknown",
     };
     if (!item.id) return;
 
@@ -42,41 +42,27 @@ const SelectedStack = ({
   selectedItems: { id: string; name: string; source: string }[];
   handleRemove: (id: string) => void;
 }) => (
-  <div style={{ marginBottom: '20px' }}>
-    <h2>Selected Items</h2>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+  <Box mb={6}>
+    <Heading size="md" mb={3}>Selected Items</Heading>
+    <Flex wrap="wrap" gap={3}>
       {selectedItems.map(item => (
-        <div
+        <Flex
           key={item.id}
-          style={{
-            backgroundColor: '#e0f7fa',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid #00acc1',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: 'black',
-          }}
+          bg="teal.100"
+          border="1px solid teal"
+          borderRadius="md"
+          p={2}
+          align="center"
+          gap={2}
         >
-          <span>{item.name}</span>
-          <button
-            onClick={() => handleRemove(item.id)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'black',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '16px',
-            }}
-          >
+          <Text>{item.name}</Text>
+          <Button size="sm" onClick={() => handleRemove(item.id)}>
             ✕
-          </button>
-        </div>
+          </Button>
+        </Flex>
       ))}
-    </div>
-  </div>
+    </Flex>
+  </Box>
 );
 
 const SelectableList = ({
@@ -88,36 +74,30 @@ const SelectableList = ({
   items: { [id: string]: { name: string; source: string } };
   handleSelect: (id: string, source: string) => void;
 }) => {
-  const validEntries = Object.entries(items).filter(([id, item]) => item?.name); // only items with names
+  const validEntries = Object.entries(items).filter(([_, item]) => item?.name);
 
   return (
-    <ul style={{ listStyle: 'none', padding: 0, flex: 1 }}>
-      <h2 style={{ textTransform: 'capitalize' }}>{source}</h2>
+    <Box flex={1}>
+      <Heading size="sm" textTransform="capitalize" mb={2}>{source}</Heading>
 
       {validEntries.length === 0 ? (
-        <li style={{ color: '#999', fontStyle: 'italic' }}>No more options</li>
+        <Text color="gray.500" fontStyle="italic">No more options</Text>
       ) : (
         validEntries.map(([id, item]) => (
-          <li key={id} style={{ textAlign: 'left', marginBottom: '8px' }}>
-            <button
-              onClick={() => handleSelect(id, source)}
-              style={{
-                background: '#000',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                padding: '6px 8px',
-                cursor: 'pointer',
-                width: '100%',
-                textAlign: 'left',
-                color: '#fff',
-              }}
-            >
-              {item.name}
-            </button>
-          </li>
+          <Button
+            key={id}
+            onClick={() => handleSelect(id, source)}
+            mb={2}
+            w="100%"
+            bg="black"
+            color="white"
+            _hover={{ bg: "gray.800" }}
+          >
+            {item.name}
+          </Button>
         ))
       )}
-    </ul>
+    </Box>
   );
 };
 
@@ -131,21 +111,20 @@ function App() {
   const [user_input_vector, setUserInputVector] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch('/data/user_input_vars.csv')
+    fetch("/data/user_input_vars.csv")
       .then(res => res.text())
       .then(text => {
-        const workbook = XLSX.read(text, { type: 'string' });
+        const workbook = XLSX.read(text, { type: "string" });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(sheet);
 
-        // Group all items by source
         const all: { [source: string]: any[] } = {};
         jsonData.forEach(rawItem => {
           const item = {
-            id: rawItem['Element ID'] ?? rawItem['element id'] ?? rawItem['id'],
-            name: rawItem['Element Name'] ?? rawItem['element name'] ?? rawItem['name'],
-            source: rawItem['Source']?.toLowerCase() ?? rawItem['source']?.toLowerCase() ?? 'unknown',
+            id: rawItem["Element ID"] ?? rawItem["element id"] ?? rawItem["id"],
+            name: rawItem["Element Name"] ?? rawItem["element name"] ?? rawItem["name"],
+            source: rawItem["Source"]?.toLowerCase() ?? rawItem["source"]?.toLowerCase() ?? "unknown",
           };
           if (!item.id) return;
           if (!all[item.source]) all[item.source] = [];
@@ -153,7 +132,6 @@ function App() {
         });
         setAllItems(all);
 
-        // Pick 10 random items per source
         const user_option: { [source: string]: { [id: string]: { name: string; source: string } } } = {};
         Object.entries(all).forEach(([source, items]) => {
           const shuffled = items.sort(() => 0.5 - Math.random());
@@ -163,7 +141,6 @@ function App() {
             user_option[source][i.id] = { name: i.name, source };
           });
         });
-
         setGroupedItems(user_option);
       });
   }, []);
@@ -215,21 +192,22 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>Select Options</h1>
+    <Box p={5}>
+      <Heading mb={5}>Select Options</Heading>
 
       <SelectedStack selectedItems={selectedItems} handleRemove={handleRemove} />
 
-      <div style={{ display: 'flex', gap: '40px' }}>
+      <Flex gap={10}>
         {Object.entries(groupedItems).map(([source, items]) => (
           <SelectableList key={source} source={source} items={items} handleSelect={handleSelect} />
         ))}
-      </div>
+      </Flex>
 
-      <hr style={{ margin: '30px 0' }} />
-      <h2>User Input Vector</h2>
-      <pre>{JSON.stringify(user_input_vector, null, 2)}</pre>
-    </div>
+      <Box borderBottom="1px solid gray" my={6}></Box>
+
+      <Heading size="md" mb={2}>User Input Vector</Heading>
+      <Box as="pre" bg="gray.100" p={3} borderRadius="md">{JSON.stringify(user_input_vector, null, 2)}</Box>
+    </Box>
   );
 }
 
