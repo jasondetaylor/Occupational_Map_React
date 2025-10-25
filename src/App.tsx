@@ -56,7 +56,7 @@ const SelectedStack = ({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: '#004d40',
+            color: 'black',
           }}
         >
           <span>{item.name}</span>
@@ -130,7 +130,7 @@ function App() {
         const sheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(sheet);
 
-        // Store all items grouped by Source
+        // Group all items by source
         const all: { [source: string]: any[] } = {};
         jsonData.forEach(rawItem => {
           const item = {
@@ -144,7 +144,17 @@ function App() {
         });
         setAllItems(all);
 
-        const user_option = pick_user_options(jsonData, 10);
+        // Pick 10 random items per source
+        const user_option: { [source: string]: { [id: string]: { name: string; source: string } } } = {};
+        Object.entries(all).forEach(([source, items]) => {
+          const shuffled = items.sort(() => 0.5 - Math.random());
+          const selected = shuffled.slice(0, 10);
+          user_option[source] = {};
+          selected.forEach(i => {
+            user_option[source][i.id] = { name: i.name, source };
+          });
+        });
+
         setGroupedItems(user_option);
       });
   }, []);
