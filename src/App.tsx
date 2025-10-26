@@ -43,20 +43,29 @@ const SelectedStack = ({
   handleRemove: (id: string) => void;
 }) => (
   <Box mb={6}>
-    <Heading size="md" mb={3}>Selected Items</Heading>
-    <Flex wrap="wrap" gap={3}>
+    <Heading size="md" mb={3} color="text">
+      Selected Items
+    </Heading>
+    <Flex flexWrap="wrap" gap={3}>
       {selectedItems.map(item => (
         <Flex
           key={item.id}
-          bg="teal.100"
-          border="1px solid teal"
+          bg="primary"
+          border="1px solid"
+          borderColor="primary"
           borderRadius="md"
           p={2}
           align="center"
           gap={2}
         >
-          <Text>{item.name}</Text>
-          <Button size="sm" onClick={() => handleRemove(item.id)}>
+          <Text color="text">{item.name}</Text>
+          <Button
+            size="sm"
+            onClick={() => handleRemove(item.id)}
+            bg="secondary"
+            color="text"
+            _hover={{ bg: "primary" }}
+          >
             ✕
           </Button>
         </Flex>
@@ -78,10 +87,14 @@ const SelectableList = ({
 
   return (
     <Box flex={1}>
-      <Heading size="sm" textTransform="capitalize" mb={2}>{source}</Heading>
+      <Heading size="sm" textTransform="capitalize" mb={2} color="text">
+        {source}
+      </Heading>
 
       {validEntries.length === 0 ? (
-        <Text color="gray.500" fontStyle="italic">No more options</Text>
+        <Text color="secondary" fontStyle="italic">
+          No more options
+        </Text>
       ) : (
         validEntries.map(([id, item]) => (
           <Button
@@ -89,9 +102,9 @@ const SelectableList = ({
             onClick={() => handleSelect(id, source)}
             mb={2}
             w="100%"
-            bg="black"
-            color="white"
-            _hover={{ bg: "gray.800" }}
+            bg="primary"
+            color="text"
+            _hover={{ bg: "secondary" }}
           >
             {item.name}
           </Button>
@@ -119,6 +132,7 @@ function App() {
         const sheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(sheet);
 
+        // Group all items by source for later use
         const all: { [source: string]: any[] } = {};
         jsonData.forEach(rawItem => {
           const item = {
@@ -132,15 +146,8 @@ function App() {
         });
         setAllItems(all);
 
-        const user_option: { [source: string]: { [id: string]: { name: string; source: string } } } = {};
-        Object.entries(all).forEach(([source, items]) => {
-          const shuffled = items.sort(() => 0.5 - Math.random());
-          const selected = shuffled.slice(0, 10);
-          user_option[source] = {};
-          selected.forEach(i => {
-            user_option[source][i.id] = { name: i.name, source };
-          });
-        });
+        // Use pick_user_options to select initial grouped items
+        const user_option = pick_user_options(jsonData, 10);
         setGroupedItems(user_option);
       });
   }, []);
@@ -192,8 +199,10 @@ function App() {
   };
 
   return (
-    <Box p={5}>
-      <Heading mb={5}>Select Options</Heading>
+    <Box p={5} bg="background" color="text">
+      <Heading mb={5} color="text">
+        Select Options
+      </Heading>
 
       <SelectedStack selectedItems={selectedItems} handleRemove={handleRemove} />
 
@@ -203,10 +212,14 @@ function App() {
         ))}
       </Flex>
 
-      <Box borderBottom="1px solid gray" my={6}></Box>
+      <Box borderBottom="1px solid" borderColor="secondary" my={6}></Box>
 
-      <Heading size="md" mb={2}>User Input Vector</Heading>
-      <Box as="pre" bg="gray.100" p={3} borderRadius="md">{JSON.stringify(user_input_vector, null, 2)}</Box>
+      <Heading size="md" mb={2} color="text">
+        User Input Vector
+      </Heading>
+      <Box as="pre" bg="secondary" color="text" p={3} borderRadius="md">
+        {JSON.stringify(user_input_vector, null, 2)}
+      </Box>
     </Box>
   );
 }
